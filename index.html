@@ -14,15 +14,17 @@
       padding: 0;
     }
     .hidden {
-      display: none;
+      display: none !important;
     }
     #username-screen {
-      height: 100vh;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       background: #111;
+      z-index: 999;
     }
     input, textarea {
       width: 100%;
@@ -55,6 +57,7 @@
       height: 50px;
       border-radius: 50%;
       background: #38bdf8;
+      color: white;
     }
     #post-form {
       background: #1a1a1a;
@@ -134,19 +137,25 @@
 
   let username = "";
 
+  // On continue
   document.getElementById("continue-btn").addEventListener("click", () => {
     const input = document.getElementById("username-input").value.trim();
     if (!input) return;
 
     username = input;
 
+    // Hide the username screen
     document.getElementById("username-screen").classList.add("hidden");
+
+    // Show main app
     document.getElementById("blog-app").classList.remove("hidden");
     document.getElementById("add-post-btn").classList.remove("hidden");
 
+    // Load posts
     loadPosts();
   });
 
+  // Toggle post form
   document.getElementById("add-post-btn").addEventListener("click", () => {
     const form = document.getElementById("post-form");
     form.classList.toggle("hidden");
