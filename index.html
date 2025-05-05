@@ -2,132 +2,72 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Blog Post with Audio Upload</title>
-  
   <!-- Poppins font -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-
   <style>
-    /* Basic styling */
     body {
       font-family: 'Poppins', sans-serif;
-      background-color: #121212;
+      background: #121212;
       color: #f5f5f5;
       padding: 20px;
     }
-
-    h2, h3 {
-      color: #ffffff;
-    }
-
-    input, button, textarea {
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 5px;
-      border: 1px solid #ccc;
+    h2, h3 { color: #fff; }
+    input, textarea {
+      padding: 10px; margin: 10px 0;
+      border-radius: 5px; border: 1px solid #444;
       width: 100%;
     }
-
     button {
-      background-color: #6200ea;
-      color: white;
+      background: #6200ea; color: #fff; border: none;
+      padding: 10px 20px; border-radius: 5px;
       cursor: pointer;
     }
-
-    button:hover {
-      background-color: #3700b3;
-    }
-
-    .blog-post {
-      margin: 20px 0;
-      padding: 10px;
-      border: 1px solid #ccc;
-      background-color: #1f1f1f;
-      border-radius: 8px;
-    }
-
-    audio {
-      margin-top: 10px;
-    }
-
-    .screen {
-      display: none;
-    }
-
-    #username-screen {
-      display: block;
-    }
-
-    #content-screen {
-      display: none;
-    }
-
-    #blog-posts-container {
-      display: flex;
-      overflow-x: auto;
-      margin-top: 20px;
-    }
-
+    button:hover { background: #3700b3; }
     .blog-post-card {
-      margin-right: 10px;
-      background-color: #333;
-      padding: 15px;
-      border-radius: 10px;
-      flex-shrink: 0;
-      width: 200px;
+      background: #1f1f1f; padding: 15px; margin-right: 10px;
+      border-radius: 8px; flex-shrink: 0; width: 200px;
     }
-
-    .blog-post-card h4 {
-      color: #fff;
-    }
-
-    /* Fixed styling for the username screen */
-    #username-screen input,
-    #username-screen button {
-      width: auto;
-      margin: 10px;
-    }
-
-    #username-screen button {
-      padding: 10px 20px;
-      font-size: 16px;
-    }
+    .blog-post-card h4 { margin: 0 0 10px; color: #90cdf4; }
+    audio { width: 100%; margin-top: 10px; }
+    /* Screens */
+    #username-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+    #username-screen input, #username-screen button { width: auto; max-width: 300px; }
+    #username-screen button { margin-top: 20px; }
+    #content-screen { display: none; }
+    #blog-posts-container { display: flex; overflow-x: auto; margin-top: 20px; }
   </style>
-
-  <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-database.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-analytics.js"></script>
+  <!-- Load the compat SDKs so `firebase.initializeApp()` works -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 </head>
 <body>
 
-  <!-- Username screen -->
+  <!-- 1) Username Screen -->
   <div id="username-screen">
-    <label for="username">Enter Username:</label>
-    <input type="text" id="username">
+    <h2>Enter your username</h2>
+    <input id="username" type="text" placeholder="Your name">
     <button id="continue-btn">Continue</button>
   </div>
 
-  <!-- Content screen (hidden initially) -->
-  <div id="content-screen" class="screen">
+  <!-- 2) Main Content Screen -->
+  <div id="content-screen">
     <h2>Welcome, <span id="username-display"></span>!</h2>
-    
+
     <h3>Create a New Blog Post</h3>
-    <input type="text" id="post-title" placeholder="Post Title">
-    <textarea id="post-description" placeholder="Post Description"></textarea>
+    <input id="post-title" type="text" placeholder="Post Title">
+    <textarea id="post-description" rows="3" placeholder="Post Description"></textarea>
     <button id="add-audio-btn">Add Audio File</button>
-    <input type="file" id="audio-file-input" accept="audio/*" style="display:none;">
+    <input id="audio-file-input" type="file" accept="audio/*" style="display:none">
     <button id="submit-post-btn">Submit Post</button>
 
-    <!-- Blog posts container -->
+    <!-- Posts strip -->
     <div id="blog-posts-container"></div>
-
-    <!-- Add Blog Post button -->
-    <button id="add-blog-post-btn">+ Add New Post</button>
   </div>
 
   <script>
-    // Firebase configuration
+    // --- Firebase Initialization ---
     const firebaseConfig = {
       apiKey: "AIzaSyDErOzCKFceg7Jzci80jTVJT5tVcsRKb4E",
       authDomain: "happeemusicblog.firebaseapp.com",
@@ -138,121 +78,86 @@
       appId: "1:452113598802:web:334fd95fadfe4bbd16d28b",
       measurementId: "G-MRJ6M3B5FG"
     };
-
-    // Initialize Firebase
-    const app = firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Maximum file size (in bytes) to allow upload (e.g., 6MB)
-    const MAX_FILE_SIZE = 6 * 1024 * 1024;
+    // --- Constants ---
+    const MAX_FILE_SIZE = 6 * 1024 * 1024; // 6MB
 
-    // Handle username screen and move to content screen
+    // --- Continue Button Handler ---
     document.getElementById('continue-btn').addEventListener('click', () => {
-      const username = document.getElementById('username').value;
-      if (username) {
-        localStorage.setItem('username', username);
-        document.getElementById('username-display').innerText = username;
-        document.getElementById('username-screen').style.display = 'none'; // Hide username screen
-        document.getElementById('content-screen').style.display = 'block'; // Show content screen
-        loadBlogPosts();
-      }
+      const uname = document.getElementById('username').value.trim();
+      if (!uname) return;
+      localStorage.setItem('username', uname);
+      document.getElementById('username-display').innerText = uname;
+      document.getElementById('username-screen').style.display = 'none';
+      document.getElementById('content-screen').style.display = 'block';
+      loadBlogPosts();
     });
 
-    // Show the blog post form when the "Add Blog Post" button is clicked
-    document.getElementById('add-blog-post-btn').addEventListener('click', () => {
-      document.getElementById('post-title').value = '';
-      document.getElementById('post-description').value = '';
-      window.audioData = null;
-    });
-
-    // Add Audio File
+    // --- Audio File Selection ---
     document.getElementById('add-audio-btn').addEventListener('click', () => {
       document.getElementById('audio-file-input').click();
     });
-
     document.getElementById('audio-file-input').addEventListener('change', (e) => {
       const file = e.target.files[0];
+      if (!file) return;
       if (file.size > MAX_FILE_SIZE) {
-        alert("File is too large. Maximum size allowed is 6MB.");
-        return;
+        return alert("File too large (max 6MB).");
       }
-
-      // Convert file to base64 and save to Firebase
-      convertToBase64(file).then((base64Data) => {
-        document.getElementById('audio-file-input').value = ''; // Clear input
-        window.audioData = base64Data; // Save audio data for later use
-        alert('Audio file added successfully!');
-      }).catch((error) => {
-        console.error("Error encoding file:", error);
-        alert("Error encoding file.");
-      });
+      // Convert to base64
+      const reader = new FileReader();
+      reader.onload = () => {
+        window.audioData = reader.result;
+        alert("Audio loaded!");
+      };
+      reader.readAsDataURL(file);
     });
 
-    // Convert file to base64
-    function convertToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    // Submit Post
+    // --- Submit Post Handler ---
     document.getElementById('submit-post-btn').addEventListener('click', () => {
-      const title = document.getElementById('post-title').value;
-      const description = document.getElementById('post-description').value;
-
-      if (!title || !description || !window.audioData) {
-        alert("Please fill in all fields, including adding an audio file.");
-        return;
+      const title = document.getElementById('post-title').value.trim();
+      const desc  = document.getElementById('post-description').value.trim();
+      if (!title || !desc || !window.audioData) {
+        return alert("Title, description, and audio are required.");
       }
-
-      // Save post to Firebase
       const postRef = db.ref('blog_posts').push();
       postRef.set({
-        title,
-        description,
+        title, description,
         audioData: window.audioData,
-        timestamp: Date.now(),
-        username: localStorage.getItem('username')
+        username: localStorage.getItem('username'),
+        timestamp: Date.now()
       }).then(() => {
-        alert("Post submitted successfully!");
+        // clear form
+        document.getElementById('post-title').value = '';
+        document.getElementById('post-description').value = '';
+        window.audioData = null;
         loadBlogPosts();
       });
     });
 
-    // Load Blog Posts
+    // --- Load and Render Posts ---
     function loadBlogPosts() {
-      const postsRef = db.ref('blog_posts');
-      postsRef.once('value', (snapshot) => {
-        const blogPosts = snapshot.val();
-        const postsContainer = document.getElementById('blog-posts-container');
-        postsContainer.innerHTML = '';
-
-        if (!blogPosts) {
-          return;
-        }
-
-        Object.keys(blogPosts).forEach(key => {
-          const post = blogPosts[key];
-          const postDiv = document.createElement('div');
-          postDiv.className = 'blog-post-card';
-          postDiv.innerHTML = `
-            <h4>${post.title}</h4>
-            <p>${post.description}</p>
-            <p>Posted by: ${post.username}</p>
-            <audio controls>
-              <source src="${post.audioData}" type="audio/mpeg">
-              Your browser does not support the audio element.
-            </audio>
-          `;
-          postsContainer.appendChild(postDiv);
-        });
+      db.ref('blog_posts').once('value', snap => {
+        const posts = snap.val()||{};
+        const container = document.getElementById('blog-posts-container');
+        container.innerHTML = '';
+        Object.keys(posts)
+          .sort((a,b)=> posts[b].timestamp - posts[a].timestamp)
+          .forEach(key => {
+            const p = posts[key];
+            const card = document.createElement('div');
+            card.className = 'blog-post-card';
+            card.innerHTML = `
+              <h4>${p.title}</h4>
+              <p>${p.description}</p>
+              <small>by ${p.username}</small>
+              <audio controls src="${p.audioData}"></audio>
+            `;
+            container.appendChild(card);
+          });
       });
     }
-
   </script>
-
 </body>
 </html>
