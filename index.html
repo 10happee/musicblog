@@ -13,17 +13,14 @@
       margin: 0;
       padding: 0;
     }
-
     .container {
       max-width: 800px;
       margin: auto;
       padding: 20px;
     }
-
     h2 {
       text-align: center;
     }
-
     input, textarea, button {
       width: 100%;
       padding: 10px;
@@ -32,53 +29,43 @@
       border: none;
       font-size: 1rem;
     }
-
     button {
       background-color: #4f46e5;
       color: white;
       cursor: pointer;
     }
-
     .post {
       background: #1a1a1a;
       padding: 15px;
       margin-top: 20px;
       border-radius: 10px;
     }
-
     .post h3 {
       margin-top: 0;
       color: #90cdf4;
     }
-
     .post time {
       font-size: 0.8rem;
       color: #aaa;
     }
-
     .comments {
       margin-top: 15px;
       padding-left: 15px;
       border-left: 2px solid #333;
     }
-
     .comment {
       margin-top: 8px;
       font-size: 0.95rem;
     }
-
     .comment strong {
       color: #4fd1c5;
     }
-
     .comment-box {
       margin-top: 10px;
     }
-
     .hidden {
       display: none;
     }
-
     #username-screen {
       height: 100vh;
       display: flex;
@@ -94,7 +81,7 @@
   <div id="username-screen">
     <h2>Enter your username to start blogging</h2>
     <input type="text" id="username-input" placeholder="Your name">
-    <button onclick="enterBlog()">Continue</button>
+    <button id="continue-btn">Continue</button>
   </div>
 
   <div id="blog-app" class="container hidden">
@@ -106,11 +93,11 @@
     <div id="posts-container"></div>
   </div>
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-    import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
 
+  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyDErOzCKFceg7Jzci80jTVJT5tVcsRKb4E",
       authDomain: "happeemusicblog.firebaseapp.com",
@@ -122,12 +109,12 @@
       measurementId: "G-MRJ6M3B5FG"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
     let username = "";
 
-    window.enterBlog = function() {
+    document.getElementById("continue-btn").addEventListener("click", function() {
       const input = document.getElementById("username-input");
       username = input.value.trim();
       if (!username) return;
@@ -136,16 +123,16 @@
       document.getElementById("blog-app").classList.remove("hidden");
 
       loadPosts();
-    };
+    });
 
-    window.submitPost = function() {
+    function submitPost() {
       const title = document.getElementById("post-title").value.trim();
       const desc = document.getElementById("post-desc").value.trim();
       if (!title || !desc) return;
 
       const timestamp = Date.now();
-      const postRef = ref(db, "posts/" + timestamp);
-      set(postRef, {
+      const postRef = db.ref("posts/" + timestamp);
+      postRef.set({
         title,
         description: desc,
         username,
@@ -154,17 +141,17 @@
 
       document.getElementById("post-title").value = "";
       document.getElementById("post-desc").value = "";
-    };
+    }
 
     function loadPosts() {
-      const postsRef = ref(db, "posts");
-      onValue(postsRef, (snapshot) => {
+      const postsRef = db.ref("posts");
+      postsRef.on("value", (snapshot) => {
         const container = document.getElementById("posts-container");
         container.innerHTML = "";
         const posts = snapshot.val();
         if (!posts) return;
 
-        const keys = Object.keys(posts).sort((a, b) => b - a); // newest first
+        const keys = Object.keys(posts).sort((a, b) => b - a);
         keys.forEach((key) => {
           const post = posts[key];
           const postDiv = document.createElement("div");
@@ -189,25 +176,24 @@
       });
     }
 
-    window.addComment = function(postId) {
+    function addComment(postId) {
       const input = document.getElementById("comment-input-" + postId);
       const text = input.value.trim();
       if (!text) return;
 
-      const commentRef = ref(db, `comments/${postId}`);
-      const newCommentRef = push(commentRef);
-      set(newCommentRef, {
+      const commentRef = db.ref(`comments/${postId}`).push();
+      commentRef.set({
         text,
         username,
         timestamp: Date.now()
       });
 
       input.value = "";
-    };
+    }
 
     function loadComments(postId) {
-      const commentRef = ref(db, `comments/${postId}`);
-      onValue(commentRef, (snapshot) => {
+      const commentRef = db.ref(`comments/${postId}`);
+      commentRef.on("value", (snapshot) => {
         const commentsDiv = document.getElementById("comments-" + postId);
         commentsDiv.innerHTML = "";
 
