@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Live Blog</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #111;
+      color: white;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    input, textarea, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 1rem;
+    }
+
+    button {
+      background-color: #4f46e5;
+      color: white;
+      cursor: pointer;
+    }
+
+    .post {
+      background: #1a1a1a;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 10px;
+    }
+
+    .post h3 {
+      margin-top: 0;
+      color: #90cdf4;
+    }
+
+    .post time {
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+
+    .comments {
+      margin-top: 15px;
+      padding-left: 15px;
+      border-left: 2px solid #333;
+    }
+
+    .comment {
+      margin-top: 8px;
+      font-size: 0.95rem;
+    }
+
+    .comment strong {
+      color: #4fd1c5;
+    }
+
+    .comment-box {
+      margin-top: 10px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #username-screen {
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      background: #111;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="username-screen">
+    <h2>Enter your username to start blogging</h2>
+    <input type="text" id="username-input" placeholder="Your name">
+    <button onclick="enterBlog()">Continue</button>
+  </div>
+
+  <div id="blog-app" class="container hidden">
+    <h2>Live Blog</h2>
+    <input type="text" id="post-title" placeholder="Post Title">
+    <textarea id="post-desc" rows="4" placeholder="Post Description"></textarea>
+    <button onclick="submitPost()">Post</button>
+    
+    <div id="posts-container"></div>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDErOzCKFceg7Jzci80jTVJT5tVcsRKb4E",
+      authDomain: "happeemusicblog.firebaseapp.com",
+      databaseURL: "https://happeemusicblog-default-rtdb.firebaseio.com",
+      projectId: "happeemusicblog",
+      storageBucket: "happeemusicblog.firebasestorage.app",
+      messagingSenderId: "452113598802",
+      appId: "1:452113598802:web:334fd95fadfe4bbd16d28b",
+      measurementId: "G-MRJ6M3B5FG"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    let username = "";
+
+    window.enterBlog = function() {
+      const input = document.getElementById("username-input");
+      username = input.value.trim();
+      if (!username) return;
+
+      document.getElementById("username-screen").classList.add("hidden");
+      document.getElementById("blog-app").classList.remove("hidden");
+
+      loadPosts();
+    };
+
+    window.submitPost = function() {
+      const title = document.getElementById("post-title").value.trim();
+      const desc = document.getElementById("post-desc").value.trim();
+      if (!title || !desc) return;
+
+      const timestamp = Date.now();
+      const postRef = ref(db, "posts/" + timestamp);
+      set(postRef, {
+        title,
+        description: desc,
+        username,
+        timestamp
+      });
+
+      document.getElementById("post-title").value = "";
+      document.getElementById("post-desc").value = "";
+    };
+
+    function loadPosts() {
+      const postsRef = ref(db, "posts");
+      onValue(postsRef, (snapshot) => {
+        const container = document.getElementById("posts-container");
+        container.innerHTML = "";
+        const posts = snapshot.val();
+        if (!posts) return;
+
+        const keys = Object.keys(posts).sort((a, b) => b - a); // newest first
+        keys.forEach((key) => {
+          const post = posts[key];
+          const postDiv = document.createElement("div");
+          postDiv.className = "post";
+
+          const time = new Date(post.timestamp).toLocaleString();
+
+          postDiv.innerHTML = `
+            <h3>${post.title}</h3>
+            <p>${post.description}</p>
+            <time>Posted by ${post.username} at ${time}</time>
+            <div class="comments" id="comments-${key}"></div>
+            <div class="comment-box">
+              <input type="text" placeholder="Add a comment..." id="comment-input-${key}">
+              <button onclick="addComment('${key}')">Comment</button>
+            </div>
+          `;
+
+          container.appendChild(postDiv);
+          loadComments(key);
+        });
+      });
+    }
+
+    window.addComment = function(postId) {
+      const input = document.getElementById("comment-input-" + postId);
+      const text = input.value.trim();
+      if (!text) return;
+
+      const commentRef = ref(db, `comments/${postId}`);
+      const newCommentRef = push(commentRef);
+      set(newCommentRef, {
+        text,
+        username,
+        timestamp: Date.now()
+      });
+
+      input.value = "";
+    };
+
+    function loadComments(postId) {
+      const commentRef = ref(db, `comments/${postId}`);
+      onValue(commentRef, (snapshot) => {
+        const commentsDiv = document.getElementById("comments-" + postId);
+        commentsDiv.innerHTML = "";
+
+        const comments = snapshot.val();
+        if (!comments) return;
+
+        Object.values(comments).forEach(comment => {
+          const div = document.createElement("div");
+          div.className = "comment";
+          const time = new Date(comment.timestamp).toLocaleTimeString();
+          div.innerHTML = `<strong>${comment.username}</strong> [${time}]: ${comment.text}`;
+          commentsDiv.appendChild(div);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
