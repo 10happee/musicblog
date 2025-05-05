@@ -59,6 +59,28 @@
       display: block;
     }
 
+    #content-screen {
+      display: none;
+    }
+
+    #blog-posts-container {
+      display: flex;
+      overflow-x: auto;
+      margin-top: 20px;
+    }
+
+    .blog-post-card {
+      margin-right: 10px;
+      background-color: #333;
+      padding: 15px;
+      border-radius: 10px;
+      flex-shrink: 0;
+      width: 200px;
+    }
+
+    .blog-post-card h4 {
+      color: #fff;
+    }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js"></script>
@@ -85,7 +107,11 @@
     <input type="file" id="audio-file-input" accept="audio/*" style="display:none;">
     <button id="submit-post-btn">Submit Post</button>
 
-    <div id="blog-posts"></div>
+    <!-- Blog posts container -->
+    <div id="blog-posts-container"></div>
+
+    <!-- Add Blog Post button -->
+    <button id="add-blog-post-btn">+ Add New Post</button>
   </div>
 
   <script>
@@ -118,6 +144,13 @@
         document.getElementById('content-screen').style.display = 'block';
         loadBlogPosts();
       }
+    });
+
+    // Show the blog post form when the "Add Blog Post" button is clicked
+    document.getElementById('add-blog-post-btn').addEventListener('click', () => {
+      document.getElementById('post-title').value = '';
+      document.getElementById('post-description').value = '';
+      window.audioData = null;
     });
 
     // Add Audio File
@@ -173,9 +206,6 @@
         username: localStorage.getItem('username')
       }).then(() => {
         alert("Post submitted successfully!");
-        document.getElementById('post-title').value = '';
-        document.getElementById('post-description').value = '';
-        window.audioData = null;
         loadBlogPosts();
       });
     });
@@ -185,7 +215,7 @@
       const postsRef = db.ref('blog_posts');
       postsRef.once('value', (snapshot) => {
         const blogPosts = snapshot.val();
-        const postsContainer = document.getElementById('blog-posts');
+        const postsContainer = document.getElementById('blog-posts-container');
         postsContainer.innerHTML = '';
 
         if (!blogPosts) {
@@ -195,66 +225,21 @@
         Object.keys(blogPosts).forEach(key => {
           const post = blogPosts[key];
           const postDiv = document.createElement('div');
-          postDiv.className = 'blog-post';
+          postDiv.className = 'blog-post-card';
           postDiv.innerHTML = `
-            <h3>${post.title}</h3>
+            <h4>${post.title}</h4>
             <p>${post.description}</p>
             <p>Posted by: ${post.username}</p>
             <audio controls>
               <source src="${post.audioData}" type="audio/mpeg">
               Your browser does not support the audio element.
             </audio>
-            <button onclick="deletePost('${key}')">Delete Post</button>
           `;
           postsContainer.appendChild(postDiv);
         });
-
-        checkStorageSize();
       });
     }
 
-    // Check total database size and delete old posts if necessary
-    function checkStorageSize() {
-      const postsRef = db.ref('blog_posts');
-      postsRef.once('value', (snapshot) => {
-        const posts = snapshot.val();
-        let totalSize = 0;
-
-        // Calculate total size of posts
-        Object.keys(posts).forEach((key) => {
-          const post = posts[key];
-          totalSize += post.audioData.length;
-        });
-
-        // Check if the storage exceeds the limit (e.g., 20MB)
-        const storageLimit = 20 * 1024 * 1024; // 20MB for example
-        if (totalSize > storageLimit) {
-          alert('Storage limit exceeded, deleting the oldest posts...');
-          deleteOldestPost(posts);
-        }
-      });
-    }
-
-    // Delete the oldest post
-    function deleteOldestPost(posts) {
-      const oldestPostKey = Object.keys(posts).reduce((oldest, currentKey) => {
-        return posts[oldest].timestamp < posts[currentKey].timestamp ? oldest : currentKey;
-      });
-
-      // Delete the oldest post
-      db.ref('blog_posts/' + oldestPostKey).remove().then(() => {
-        alert("Oldest post deleted to free up space.");
-        loadBlogPosts(); // Reload posts
-      });
-    }
-
-    // Delete a specific post
-    function deletePost(postId) {
-      db.ref('blog_posts/' + postId).remove().then(() => {
-        alert("Post deleted successfully.");
-        loadBlogPosts();
-      });
-    }
   </script>
 
 </body>
