@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Blog with Comments & Timestamps</title>
+  <title>Blog with Comments & Links</title>
   <!-- Poppins font -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
@@ -11,13 +11,16 @@
       font-family: 'Poppins', sans-serif;
       background: #121212;
       color: #f5f5f5;
+      margin: 0;
       padding: 20px;
+      box-sizing: border-box;
     }
-    h2, h3 { color: #fff; margin-bottom: 10px; }
+    h2, h3 { color: #fff; margin-bottom: 0.5em; }
     input, textarea, button {
       padding: 10px; margin: 5px 0;
       border-radius: 5px; border: 1px solid #444;
       width: 100%; box-sizing: border-box;
+      background: #1f1f1f; color: #fff;
     }
     button {
       background: #6200ea; color: #fff; border: none;
@@ -27,32 +30,28 @@
     /* Username screen */
     #username-screen {
       display: flex; flex-direction: column;
-      align-items: center; justify-content: center; height: 100vh;
+      align-items: center; justify-content: center;
+      height: 100vh; background: #121212;
     }
     #username-screen input, #username-screen button {
       width: auto; max-width: 300px;
     }
     /* Main content */
     #content-screen { display: none; }
-    #blog-posts-container {
-      display: block; margin-top: 20px;
-    }
+    #blog-posts-container { display: block; margin-top: 20px; }
     .blog-post-card {
       background: #1f1f1f; padding: 15px;
-      border-radius: 8px; width: 100%;
-      margin-bottom: 20px;
+      border-radius: 8px; margin-bottom: 20px;
     }
-    .blog-post-card h4 { margin: 0 0 8px; color: #90cdf4; }
-    .blog-post-card .meta { font-size: 0.85rem; color: #aaa; margin-bottom: 10px; }
+    .blog-post-card h4 { margin: 0 0 10px; color: #90cdf4; }
+    .blog-post-card .meta { font-size: 0.85em; color: #aaa; margin-bottom: 10px; }
     .blog-post-card audio { width: 100%; margin: 10px 0; }
-    .comments { margin-top: 10px; border-top: 1px solid #333; padding-top: 10px; }
-    .comment { margin-bottom: 6px; }
-    .comment strong { color: #4fd1c5; }
-    .comment-input { display: flex; gap: 10px; margin-top: 10px; }
-    .comment-input input { flex: 1; }
-    .comment-input button { width: auto; }
+    .comments { margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; }
+    .comment { margin-bottom: 8px; }
+    .comment .meta { font-size: 0.8em; color: #bbb; }
+    a { color: #38bdf8; word-break: break-all; }
   </style>
-  <!-- Firebase compat SDKs -->
+  <!-- Compat SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 </head>
@@ -96,6 +95,15 @@
     const db = firebase.database();
     const MAX_FILE_SIZE = 6 * 1024 * 1024; // 6MB
 
+    // Utils
+    function linkify(text) {
+      return text.replace(/(https:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+    }
+    function formatTime(ts) {
+      const d = new Date(ts);
+      return d.toLocaleString();
+    }
+
     // 1) Continue button
     document.getElementById('continue-btn').addEventListener('click', () => {
       const u = document.getElementById('username').value.trim();
@@ -104,14 +112,14 @@
       document.getElementById('username-display').innerText = u;
       document.getElementById('username-screen').style.display = 'none';
       document.getElementById('content-screen').style.display = 'block';
-      attachListeners();
+      attachPostListeners();
       listenForPosts();
     });
 
     let audioData = null;
 
-    function attachListeners() {
-      // audio attach
+    function attachPostListeners() {
+      // attach audio
       document.getElementById('add-audio-btn').addEventListener('click', () => {
         document.getElementById('audio-file-input').click();
       });
@@ -128,8 +136,8 @@
         const t = document.getElementById('post-title').value.trim();
         const d = document.getElementById('post-description').value.trim();
         if (!t || !d) return alert('Title & description required');
-        const ref = db.ref('blog_posts').push();
-        ref.set({
+        const postRef = db.ref('blog_posts').push();
+        postRef.set({
           title: t,
           description: d,
           audioData: audioData || null,
@@ -143,74 +151,74 @@
       });
     }
 
-    // Listen for posts + comments
+    // 2) Listen & render posts + comments
     function listenForPosts() {
       db.ref('blog_posts')
         .orderByChild('timestamp')
         .on('value', snap => {
-          const data = snap.val() || {};
+          const data = snap.val()||{};
           const cont = document.getElementById('blog-posts-container');
           cont.innerHTML = '';
           Object.keys(data)
             .sort((a,b)=> data[b].timestamp - data[a].timestamp)
-            .forEach(k => renderPost(k, data[k]));
+            .forEach(key => renderPost(key, data[key], cont));
         });
     }
 
-    function renderPost(id, p) {
-      const cont = document.getElementById('blog-posts-container');
+    function renderPost(key, post, container) {
       const div = document.createElement('div');
       div.className = 'blog-post-card';
-      const time = new Date(p.timestamp).toLocaleString();
       div.innerHTML = `
-        <h4>${p.title}</h4>
-        <div class="meta">by ${p.username} • ${time}</div>
-        <p>${p.description}</p>
-        ${p.audioData ? `<audio controls src="${p.audioData}"></audio>` : ''}
-        <div class="comments" id="comments-${id}"><strong>Comments:</strong></div>
-        <div class="comment-input">
-          <input id="comment-input-${id}" placeholder="Add a comment…">
-          <button onclick="addComment('${id}')">Comment</button>
+        <h4>${linkify(post.title)}</h4>
+        <div class="meta">by ${post.username} · ${formatTime(post.timestamp)}</div>
+        <p>${linkify(post.description)}</p>
+        ${post.audioData ? `<audio controls src="${post.audioData}"></audio>` : ''}
+        <div class="comments" id="comments-${key}">
+          <h4>Comments</h4>
+          <div id="comments-list-${key}"></div>
+          <input id="comment-input-${key}" placeholder="Add a comment">
+          <button onclick="addComment('${key}')">Comment</button>
         </div>
       `;
-      cont.appendChild(div);
-      loadComments(id);
+      container.appendChild(div);
+      listenForComments(key);
     }
 
-    function addComment(postId) {
-      const inp = document.getElementById('comment-input-'+postId);
+    // comments
+    function listenForComments(postKey) {
+      db.ref(`comments/${postKey}`)
+        .orderByChild('timestamp')
+        .on('value', snap => {
+          const data = snap.val()||{};
+          const list = document.getElementById(`comments-list-${postKey}`);
+          list.innerHTML = '';
+          Object.keys(data)
+            .sort((a,b)=> data[a].timestamp - data[b].timestamp)
+            .forEach(cid => {
+              const c = data[cid];
+              const div = document.createElement('div');
+              div.className = 'comment';
+              div.innerHTML = `
+                <div class="meta"><strong>${c.username}</strong> · ${formatTime(c.timestamp)}</div>
+                <div>${linkify(c.text)}</div>
+              `;
+              list.appendChild(div);
+            });
+        });
+    }
+
+    window.addComment = function(postKey) {
+      const inp = document.getElementById(`comment-input-${postKey}`);
       const txt = inp.value.trim();
       if (!txt) return;
-      const cref = db.ref(`comments/${postId}`).push();
+      const cref = db.ref(`comments/${postKey}`).push();
       cref.set({
         text: txt,
         username: localStorage.getItem('username'),
         timestamp: Date.now()
       });
       inp.value = '';
-    }
-
-    function loadComments(postId) {
-      const commentsDiv = document.getElementById('comments-'+postId);
-      commentsDiv.innerHTML = '<strong>Comments:</strong>';
-      db.ref(`comments/${postId}`)
-        .orderByChild('timestamp')
-        .on('value', snap => {
-          const cdata = snap.val() || {};
-          // clear then render in time order
-          commentsDiv.innerHTML = '<strong>Comments:</strong>';
-          Object.keys(cdata)
-            .sort((a,b)=> cdata[a].timestamp - cdata[b].timestamp)
-            .forEach(key => {
-              const c = cdata[key];
-              const t = new Date(c.timestamp).toLocaleTimeString();
-              const el = document.createElement('div');
-              el.className = 'comment';
-              el.innerHTML = `<strong>${c.username}</strong> [${t}]: ${c.text}`;
-              commentsDiv.appendChild(el);
-            });
-        });
-    }
+    };
   </script>
 </body>
 </html>
