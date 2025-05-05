@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Blog Post with Audio Upload</title>
+  <title>Blog Post with Optional Audio</title>
   <!-- Poppins font -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
@@ -18,57 +18,66 @@
       padding: 10px; margin: 10px 0;
       border-radius: 5px; border: 1px solid #444;
       width: 100%;
+      box-sizing: border-box;
     }
     button {
       background: #6200ea; color: #fff; border: none;
       padding: 10px 20px; border-radius: 5px;
-      cursor: pointer;
+      cursor: pointer; margin-top: 5px;
     }
     button:hover { background: #3700b3; }
-    .blog-post-card {
-      background: #1f1f1f; padding: 15px; margin-right: 10px;
-      border-radius: 8px; flex-shrink: 0; width: 200px;
+    /* Username screen */
+    #username-screen {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100vh;
     }
-    .blog-post-card h4 { margin: 0 0 10px; color: #90cdf4; }
-    audio { width: 100%; margin-top: 10px; }
-    /* Screens */
-    #username-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
-    #username-screen input, #username-screen button { width: auto; max-width: 300px; }
-    #username-screen button { margin-top: 20px; }
+    #username-screen input, #username-screen button {
+      width: auto; max-width: 300px;
+    }
+    /* Main content */
     #content-screen { display: none; }
-    #blog-posts-container { display: flex; overflow-x: auto; margin-top: 20px; }
+    #blog-posts-container {
+      display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px;
+    }
+    .blog-post-card {
+      background: #1f1f1f; padding: 15px;
+      border-radius: 8px; width: 250px; box-sizing: border-box;
+    }
+    .blog-post-card h4 { margin: 0 0 8px; color: #90cdf4; }
+    .blog-post-card audio { width: 100%; margin-top: 10px; }
   </style>
-  <!-- Load the compat SDKs so `firebase.initializeApp()` works -->
+  <!-- Compat SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 </head>
 <body>
 
-  <!-- 1) Username Screen -->
+  <!-- 1) Enter Username -->
   <div id="username-screen">
     <h2>Enter your username</h2>
     <input id="username" type="text" placeholder="Your name">
     <button id="continue-btn">Continue</button>
   </div>
 
-  <!-- 2) Main Content Screen -->
+  <!-- 2) Main Blog UI -->
   <div id="content-screen">
     <h2>Welcome, <span id="username-display"></span>!</h2>
 
     <h3>Create a New Blog Post</h3>
     <input id="post-title" type="text" placeholder="Post Title">
     <textarea id="post-description" rows="3" placeholder="Post Description"></textarea>
-    <button id="add-audio-btn">Add Audio File</button>
+    <button id="add-audio-btn">Attach Audio (optional)</button>
     <input id="audio-file-input" type="file" accept="audio/*" style="display:none">
     <button id="submit-post-btn">Submit Post</button>
 
-    <!-- Posts strip -->
+    <h3>All Blog Posts</h3>
     <div id="blog-posts-container"></div>
   </div>
 
   <script>
-    // --- Firebase Initialization ---
-    const firebaseConfig = {
+    // Firebase config + init
+    const cfg = {
       apiKey: "AIzaSyDErOzCKFceg7Jzci80jTVJT5tVcsRKb4E",
       authDomain: "happeemusicblog.firebaseapp.com",
       databaseURL: "https://happeemusicblog-default-rtdb.firebaseio.com",
@@ -78,85 +87,81 @@
       appId: "1:452113598802:web:334fd95fadfe4bbd16d28b",
       measurementId: "G-MRJ6M3B5FG"
     };
-    firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(cfg);
     const db = firebase.database();
-
-    // --- Constants ---
     const MAX_FILE_SIZE = 6 * 1024 * 1024; // 6MB
 
-    // --- Continue Button Handler ---
+    // 1) Continue button
     document.getElementById('continue-btn').addEventListener('click', () => {
-      const uname = document.getElementById('username').value.trim();
-      if (!uname) return;
-      localStorage.setItem('username', uname);
-      document.getElementById('username-display').innerText = uname;
+      const u = document.getElementById('username').value.trim();
+      if (!u) return;
+      localStorage.setItem('username', u);
+      document.getElementById('username-display').innerText = u;
       document.getElementById('username-screen').style.display = 'none';
       document.getElementById('content-screen').style.display = 'block';
-      loadBlogPosts();
+      attachListeners();
+      listenForPosts();
     });
 
-    // --- Audio File Selection ---
-    document.getElementById('add-audio-btn').addEventListener('click', () => {
-      document.getElementById('audio-file-input').click();
-    });
-    document.getElementById('audio-file-input').addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      if (file.size > MAX_FILE_SIZE) {
-        return alert("File too large (max 6MB).");
-      }
-      // Convert to base64
-      const reader = new FileReader();
-      reader.onload = () => {
-        window.audioData = reader.result;
-        alert("Audio loaded!");
-      };
-      reader.readAsDataURL(file);
-    });
+    let audioData = null;
 
-    // --- Submit Post Handler ---
-    document.getElementById('submit-post-btn').addEventListener('click', () => {
-      const title = document.getElementById('post-title').value.trim();
-      const desc  = document.getElementById('post-description').value.trim();
-      if (!title || !desc || !window.audioData) {
-        return alert("Title, description, and audio are required.");
-      }
-      const postRef = db.ref('blog_posts').push();
-      postRef.set({
-        title, description,
-        audioData: window.audioData,
-        username: localStorage.getItem('username'),
-        timestamp: Date.now()
-      }).then(() => {
-        // clear form
-        document.getElementById('post-title').value = '';
-        document.getElementById('post-description').value = '';
-        window.audioData = null;
-        loadBlogPosts();
+    function attachListeners() {
+      // audio attach
+      document.getElementById('add-audio-btn').addEventListener('click', () => {
+        document.getElementById('audio-file-input').click();
       });
-    });
-
-    // --- Load and Render Posts ---
-    function loadBlogPosts() {
-      db.ref('blog_posts').once('value', snap => {
-        const posts = snap.val()||{};
-        const container = document.getElementById('blog-posts-container');
-        container.innerHTML = '';
-        Object.keys(posts)
-          .sort((a,b)=> posts[b].timestamp - posts[a].timestamp)
-          .forEach(key => {
-            const p = posts[key];
-            const card = document.createElement('div');
-            card.className = 'blog-post-card';
-            card.innerHTML = `
-              <h4>${p.title}</h4>
-              <p>${p.description}</p>
-              <small>by ${p.username}</small>
-              <audio controls src="${p.audioData}"></audio>
-            `;
-            container.appendChild(card);
-          });
+      document.getElementById('audio-file-input').addEventListener('change', e => {
+        const f = e.target.files[0];
+        if (!f) return;
+        if (f.size > MAX_FILE_SIZE) return alert('Audio > 6MB');
+        const r = new FileReader();
+        r.onload = () => audioData = r.result;
+        r.readAsDataURL(f);
       });
+      // submit post
+      document.getElementById('submit-post-btn').addEventListener('click', () => {
+        const t = document.getElementById('post-title').value.trim();
+        const d = document.getElementById('post-description').value.trim();
+        if (!t || !d) return alert('Title & description required');
+        const ref = db.ref('blog_posts').push();
+        ref.set({
+          title: t,
+          description: d,
+          audioData: audioData || null,
+          username: localStorage.getItem('username'),
+          timestamp: Date.now()
+        }).then(() => {
+          document.getElementById('post-title').value = '';
+          document.getElementById('post-description').value = '';
+          audioData = null;
+        });
+      });
+    }
+
+    // 2) Real-time post listener
+    function listenForPosts() {
+      db.ref('blog_posts')
+        .orderByChild('timestamp')
+        .on('value', snap => {
+          const data = snap.val()||{};
+          const cont = document.getElementById('blog-posts-container');
+          cont.innerHTML = '';
+          // newest first
+          Object.keys(data)
+            .sort((a,b)=> data[b].timestamp - data[a].timestamp)
+            .forEach(k => {
+              const p = data[k];
+              const div = document.createElement('div');
+              div.className = 'blog-post-card';
+              div.innerHTML = `
+                <h4>${p.title}</h4>
+                <p>${p.description}</p>
+                <small>by ${p.username}</small>
+                ${p.audioData ? `<audio controls src="${p.audioData}"></audio>` : ''}
+              `;
+              cont.appendChild(div);
+            });
+        });
     }
   </script>
 </body>
