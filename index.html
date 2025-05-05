@@ -18,10 +18,7 @@
       margin: auto;
       padding: 20px;
     }
-    h2 {
-      text-align: center;
-    }
-    input, textarea, button {
+    input, textarea {
       width: 100%;
       padding: 10px;
       margin-top: 10px;
@@ -30,6 +27,11 @@
       font-size: 1rem;
     }
     button {
+      padding: 10px 20px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
       background-color: #4f46e5;
       color: white;
       cursor: pointer;
@@ -73,13 +75,21 @@
       justify-content: center;
       flex-direction: column;
       background: #111;
+      text-align: center;
+      padding: 20px;
+    }
+    #username-input {
+      max-width: 300px;
+    }
+    #continue-btn {
+      width: auto;
     }
   </style>
 </head>
 <body>
 
   <div id="username-screen">
-    <h2>Enter your username to start blogging</h2>
+    <h2>Enter your username</h2>
     <input type="text" id="username-input" placeholder="Your name">
     <button id="continue-btn">Continue</button>
   </div>
@@ -94,10 +104,11 @@
   </div>
 
   <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
   <script>
+    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyDErOzCKFceg7Jzci80jTVJT5tVcsRKb4E",
       authDomain: "happeemusicblog.firebaseapp.com",
@@ -109,12 +120,13 @@
       measurementId: "G-MRJ6M3B5FG"
     };
 
-    const app = firebase.initializeApp(firebaseConfig);
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
     let username = "";
 
-    document.getElementById("continue-btn").addEventListener("click", function() {
+    document.getElementById("continue-btn").addEventListener("click", () => {
       const input = document.getElementById("username-input");
       username = input.value.trim();
       if (!username) return;
