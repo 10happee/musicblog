@@ -81,6 +81,18 @@
     .blog-post-card h4 {
       color: #fff;
     }
+
+    /* Fixed styling for the username screen */
+    #username-screen input,
+    #username-screen button {
+      width: auto;
+      margin: 10px;
+    }
+
+    #username-screen button {
+      padding: 10px 20px;
+      font-size: 16px;
+    }
   </style>
 
   <script src="https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js"></script>
@@ -140,8 +152,8 @@
       if (username) {
         localStorage.setItem('username', username);
         document.getElementById('username-display').innerText = username;
-        document.getElementById('username-screen').style.display = 'none';
-        document.getElementById('content-screen').style.display = 'block';
+        document.getElementById('username-screen').style.display = 'none'; // Hide username screen
+        document.getElementById('content-screen').style.display = 'block'; // Show content screen
         loadBlogPosts();
       }
     });
